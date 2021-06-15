@@ -1,0 +1,160 @@
+\documentclass[a4paper,dvipdfmx]{ujarticle}
+
+\usepackage[top=40truemm,bottom=40truemm,left=30truemm,right=30truemm]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{color}
+\usepackage{ascmac}
+\usepackage{bm}
+\usepackage{float}
+\usepackage{framed}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{rmss_symbol}
+\usepackage{url}
+\usepackage{hyperref}
+\usepackage{pxjahyper}
+
+
+\newtheorem{definition}{定義}
+\newtheorem{proposition}{命題}
+\newtheorem{theorem}{定理}
+\newtheorem{lemma}{補題}
+\newtheorem{assumption}{仮定}
+
+
+\begin{document}
+
+
+\vspace{1zh}
+\begin{center}
+\LARGE{
+
+    渡邊さんに合わせたプログラム
+
+}
+\end{center}
+\vspace{1zh}
+\begin{flushright}
+
+    作成日：2021年6月15日\\
+    交通制御学研究室　武田翼
+
+\end{flushright}
+\vspace{1zh}
+
+
+
+{\normalsize %
+\begin{center}%
+\begin{minipage}{.8\textwidth}%
+\vspace{1.0em} %
+%
+\begin{center}
+\textbf{概要}
+\end{center}
+
+
+    渡邊さんに合わせたプログラム作成用メモ．
+
+
+\end{minipage}%
+\end{center}%
+}%
+
+
+\section{全体像}
+
+
+    全体としての入力と出力は以下の通り．
+    \begin{itemize}
+        \item \textbf{入力}：
+            \begin{itemize}
+                \item ノード数
+                \item タスク起点数
+                \item 平均ドライバー数
+                \item 各種パラメータ
+            \end{itemize}
+
+        \item \textbf{出力}：
+            \begin{itemize}
+                \item 計算時間
+                \item 目的関数値誤差
+            \end{itemize}
+    \end{itemize}
+
+
+    全体の流れ(必要なモジュール)は以下の通り．
+    ただし，\textcolor{blue}{青}はすでにあるプログラム．
+    \textcolor{red}{赤}はすでにあるが修正 or 作成が必要なプログラム．
+
+    \textbf{データ生成}
+    \begin{enumerate}
+        \item \textcolor{blue}{ネットワーク生成}
+            \begin{itemize}
+                \item \textbf{入力}：ノード数
+                \item \textbf{出力}：各ノード間の最短経路コスト行列
+                \item ネットワーク生成(ノード数に合わせたランダムネット)
+                \item 各ノード間の最短経路コスト行列の作成(Dijkstra)
+            \end{itemize}
+
+        \item \textcolor{blue}{タスク起点生成}
+            \begin{itemize}
+                \item \textbf{入力}：ノード数，タスク起点数
+                \item \textbf{出力}：タスク起点ノードベクトル．
+                \item 全ノードからランダムに選ぶだけ．
+            \end{itemize}
+
+        \item \textcolor{red}{荷主情報の生成}
+            \begin{itemize}
+                \item \textbf{入力}：ノード数，タスク起点数，平均ドライバー数
+                \item \textbf{出力}：荷主分布ベクトル
+                \item ランダムに配置するだけ．
+            \end{itemize}
+
+
+        \item \textcolor{red}{ドライバー情報の生成}
+            \begin{itemize}
+                \item \textbf{入力}：ノード数，タスク起点数，平均ドライバー数，LOGITパラメータ
+                \item \textbf{出力}：ドライバー分布行列，個人ドライバーのコスト行列
+                \item ドライバーをランダムに配置
+                \item 個人ドライバーのコスト行列作成
+            \end{itemize}
+    \end{enumerate}
+
+    \textbf{マッチング計算}
+    \begin{enumerate}
+        \item \textcolor{red}{加速勾配法}
+            \begin{itemize}
+                \item \textbf{入力}：ノード間最短経路コスト行列，荷主分布ベクトル，ドライバー分布ベクトル
+                \item \textbf{出力}：最適価格
+                \item 加速勾配法で最適化問題を解く．
+            \end{itemize}
+
+        \item \textcolor{red}{最適配分(実数値)を生成}
+            \begin{itemize}
+                \item \textbf{入力}：最適価格
+                \item \textbf{出力}：最適配分(実数値)
+                \item 仮想ネットワーク上のMarkov連鎖配分で最適配分を計算．
+            \end{itemize}
+
+        \item \textcolor{red}{最適配分(整数値)を生成}
+            \begin{itemize}
+                \item \textbf{入力}：最適配分(実数値)
+                \item \textbf{出力}：最適配分(整数値)
+                \item 適当に丸める．
+            \end{itemize}
+
+        \item \textcolor{red}{マッチング計算(ワンちゃん渡邊さんのでいけるかも)}
+            \begin{itemize}
+                \item \textbf{入力}：ドライバーコスト行列のみver，and +最適配分(整数値)ver
+                \item \textbf{出力}：個別マッチング行列
+                \item 線形計画問題を解く．
+            \end{itemize}
+    \end{enumerate}
+
+
+
+
+
+\end{document}

@@ -4,13 +4,29 @@
 #include <float.h>
 #include <math.h>
 
-
+// ベクトル構造体
 typedef struct {
     int num_elements;
     double* vector;
 } Vector;
+typedef struct {
+    int num_elements;
+    int* vector;
+} Vector_int;
 
+// 行列構造体
+typedef struct {
+    int num_row; // 行数
+    int num_col; // 列数
+    double** matrix;
+} Matrix;
+typedef struct {
+    int num_row;
+    int num_col;
+    int** matrix;
+} Matrix_int;
 
+// 加速勾配法の返り値構造体
 typedef struct {
     Vector sol;
     double CPU_time_sec;
@@ -18,6 +34,15 @@ typedef struct {
     int num_calls_obj;
     int num_calls_nabla;
 } Optimization;
+
+// 問題情報の構造体
+typedef struct {
+    Matrix cost_between_nodes;
+    Matrix_int num_shippers;
+    Matrix_int num_drivers;
+    Vector_int depots_index;
+    double LOGIT_param_driver;
+} Problem_struct;
 
 
 
@@ -202,19 +227,149 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*----------------------------------------------------------------------------------------------------------------------
+目的関数関係
+----------------------------------------------------------------------------------------------------------------------*/
+
+/*----------------------------------------------------------------------------------------------------------------------
+r_index(0スタート)，s_index(0スタート)から
+rs_index(0スタート)をえる関数
+----------------------------------------------------------------------------------------------------------------------*/
+void free_Matrix(Matrix A)
+{
+    for(int row = 0; row < A.num_row; row++)
+    {
+        free(A.matrix[row]);
+    }
+    free(A.matrix);
+}
+
+
+/*----------------------------------------------------------------------------------------------------------------------
+r_index(0スタート)，s_index(0スタート)から
+rs_index(0スタート)をえる関数
+----------------------------------------------------------------------------------------------------------------------*/
+int calc_rs_index_from_r_s(const int r, const int s, const int num_s)
+{
+    int rs = 0;
+
+    rs += r * num_s + ( s - 1 );
+
+    return rs;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+mu_os計算関数
+第一引数：暫定解，第二引数：問題構造
+返り値：mu_os行列(行がo，列がsで0スタート)
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix calc_mu_os(const Vector now_sol, const Problem_struct data)
+{
+    Matrix mu_os;
+    mu_os.num_row = data.cost_between_nodes.num_row;
+    mu_os.num_col = data.cost_between_nodes.num_row;
+    mu_os.matrix = malloc(sizeof(double *) * data.cost_between_nodes.num_row);
+    for (int o = 0; o < data.cost_between_nodes.num_row; o++)
+    {
+        mu_os.matrix[o] = malloc(sizeof(double) * data.cost_between_nodes.num_row);
+        for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+        {
+            double sum = 0.0;
+
+            for (int r = 0; r < data.depots_index.num_elements; r++)
+            {
+                int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
+                sum += exp(-data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] - now_sol.vector[rs] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s]));
+            }
+
+            mu_os.matrix[o][s] = - log(sum) / data.LOGIT_param_driver;
+        }
+    }
+
+    return mu_os;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+mu_od計算関数
+第一引数：mu_os行列，第二引数：問題構造
+返り値：mu_od行列(行がo，列がdで0スタート)
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
+{
+    Matrix mu_od;
+    mu_od.num_row = data.cost_between_nodes.num_row;
+    mu_od.num_col = data.cost_between_nodes.num_row;
+    mu_od.matrix = malloc(sizeof(double *) * data.cost_between_nodes.num_row);
+    for (int o = 0; o < data.cost_between_nodes.num_row; o++)
+    {
+        mu_od.matrix[o] = malloc(sizeof(double) * data.cost_between_nodes.num_row);
+        for (int d = 0; d < data.cost_between_nodes.num_row; d++)
+        {
+            double sum = 0.0;
+
+            for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+            {
+                sum += exp(-data.LOGIT_param_driver * (mu_os.matrix[o][s] + data.cost_between_nodes.matrix[s][d]));
+            }
+
+            mu_od.matrix[o][d] = -log(sum) / data.LOGIT_param_driver;
+        }
+    }
+
+    return mu_od;
+}
+
+
 /*----------------------------------------------------------------------------------------------------------------------
 目的関数
+第一引数：暫定解，第二引数：タスク起点のインデックス行列，
+第三引数：ノード間のコスト行列，第四引数；ドライバーLOGITパラメータ
 ----------------------------------------------------------------------------------------------------------------------*/
-double function_1(const Vector x)
+double obj_function(const Vector now_sol, const Problem_struct data)
 {
 
     double obj = 0.0;
 
-    for (int i = 0; i < 10; i++)
+    Matrix mu_os;
+    mu_os = calc_mu_os(now_sol, data);
+
+    Matrix mu_od;
+    mu_od = calc_mu_od(mu_os, data);
+
+    for(int r = 0; r < data.depots_index.num_elements; r++)
     {
-        // obj += x[i]*x[i];
-        obj += x.vector[i] * x.vector[i] + x.vector[i] + exp(x.vector[i]);
+        for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+        {
+            int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
+            obj -= data.num_shippers.matrix[r][s] * now_sol.vector[rs];
+        }
+        
     }
+
+    for(int o = 0; o < data.cost_between_nodes.num_row; o++)
+    {
+        for(int d = 0; d < data.cost_between_nodes.num_row; d++)
+        {
+            obj -= data.num_drivers.matrix[o][d] * mu_od.matrix[o][d];
+        }
+    }
+
+    free_Matrix(mu_os);
+    free_Matrix(mu_od);
+
 
     return obj;
 }
@@ -225,7 +380,7 @@ double function_1(const Vector x)
 ----------------------------------------------------------------------------------------------------------------------*/
 
 
-Vector function_nabla_1(const Vector x)
+Vector nabla_function(const Vector x)
 {
 
     Vector nabla;

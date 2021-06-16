@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include <math.h>
+#include <time.h>
 
 // ベクトル構造体
 typedef struct {
@@ -42,6 +43,8 @@ typedef struct {
     Matrix_int num_drivers;
     Vector_int depots_index;
     double LOGIT_param_driver;
+    int num_nodes;
+    int num_depots;
 } Problem_struct;
 
 
@@ -154,6 +157,10 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
     int num_calls_obj = 0;
     int num_calls_nabla = 0;
 
+    long cpu_start_time, cpu_end_time;
+    double sec;
+
+    cpu_start_time = clock();
 
     while (1)
     {
@@ -185,10 +192,25 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         // printf("max = %f\nmin = %f\n", max_vector_double(x_nabla, x_elements), min_vector_double(x_nabla, x_elements));
 
         // 収束判定
-        if (max_vector_double(x_nabla.vector, x_elements) < epsilon && min_vector_double(x_nabla.vector, x_elements) > -epsilon)
+        double max_vector = max_vector_double(x_nabla.vector, x_elements);
+        double min_vector = min_vector_double(x_nabla.vector, x_elements);
+        double conv;
+        if(max_vector > - min_vector){
+            conv = max_vector;
+        } else {
+            conv = - min_vector;
+        }
+        if (conv < epsilon)
         {
             break;
         }
+
+        // 目的関数値を計算したいときは on
+        if(iteration%100 == 0){
+            printf("Iteration:%d\n", iteration);
+            printf("Conv = %f \tObj = %f \tLips = %f\n\n", conv, function(x), L);
+        }
+        // printf("objective = %f", function(x));
 
         // 次ステップのための慣性方向の移動
         if (inner_product(x_nabla.vector, delta_x.vector, x_elements) > 0.0)
@@ -206,9 +228,10 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         // 暫定解を書き出ししたいときは on
         // printf_vector_double(x, x_elements);
 
-        // 目的関数値を計算したいときは on
-        // printf("objective = %f", function(x));
     }
+
+    cpu_end_time = clock();
+    sec = (double)(cpu_end_time - cpu_start_time) / CLOCKS_PER_SEC;
 
     // 解の取得
     solution.sol = x;
@@ -216,6 +239,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
     solution.iteration = iteration;
     solution.num_calls_nabla = num_calls_nabla;
     solution.num_calls_obj = num_calls_obj;
+    solution.CPU_time_sec = sec;
 
 
 
@@ -245,16 +269,17 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
 ----------------------------------------------------------------------------------------------------------------------*/
 
 /*----------------------------------------------------------------------------------------------------------------------
-r_index(0スタート)，s_index(0スタート)から
-rs_index(0スタート)をえる関数
+行列のメモリ領域を解放する関数
 ----------------------------------------------------------------------------------------------------------------------*/
-void free_Matrix(Matrix A)
+int free_Matrix(Matrix A)
 {
     for(int row = 0; row < A.num_row; row++)
     {
         free(A.matrix[row]);
     }
     free(A.matrix);
+
+    return 0;
 }
 
 
@@ -279,20 +304,20 @@ mu_os計算関数
 Matrix calc_mu_os(const Vector now_sol, const Problem_struct data)
 {
     Matrix mu_os;
-    mu_os.num_row = data.cost_between_nodes.num_row;
-    mu_os.num_col = data.cost_between_nodes.num_row;
-    mu_os.matrix = malloc(sizeof(double *) * data.cost_between_nodes.num_row);
-    for (int o = 0; o < data.cost_between_nodes.num_row; o++)
+    mu_os.num_row = data.num_nodes;
+    mu_os.num_col = data.num_nodes;
+    mu_os.matrix = malloc(sizeof(double *) * data.num_nodes);
+    for (int o = 0; o < data.num_nodes; o++)
     {
-        mu_os.matrix[o] = malloc(sizeof(double) * data.cost_between_nodes.num_row);
-        for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+        mu_os.matrix[o] = malloc(sizeof(double) * data.num_nodes);
+        for (int s = 0; s < data.num_nodes; s++)
         {
             double sum = 0.0;
 
-            for (int r = 0; r < data.depots_index.num_elements; r++)
+            for (int r = 0; r < data.num_depots; r++)
             {
-                int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
-                sum += exp(-data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] - now_sol.vector[rs] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s]));
+                int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
+                sum += exp(- data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] - now_sol.vector[rs] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s]));
             }
 
             mu_os.matrix[o][s] = - log(sum) / data.LOGIT_param_driver;
@@ -310,17 +335,17 @@ mu_od計算関数
 Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
 {
     Matrix mu_od;
-    mu_od.num_row = data.cost_between_nodes.num_row;
-    mu_od.num_col = data.cost_between_nodes.num_row;
-    mu_od.matrix = malloc(sizeof(double *) * data.cost_between_nodes.num_row);
-    for (int o = 0; o < data.cost_between_nodes.num_row; o++)
+    mu_od.num_row = data.num_nodes;
+    mu_od.num_col = data.num_nodes;
+    mu_od.matrix = malloc(sizeof(double *) * data.num_nodes);
+    for (int o = 0; o < data.num_nodes; o++)
     {
-        mu_od.matrix[o] = malloc(sizeof(double) * data.cost_between_nodes.num_row);
-        for (int d = 0; d < data.cost_between_nodes.num_row; d++)
+        mu_od.matrix[o] = malloc(sizeof(double) * data.num_nodes);
+        for (int d = 0; d < data.num_nodes; d++)
         {
             double sum = 0.0;
 
-            for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+            for (int s = 0; s < data.num_nodes; s++)
             {
                 sum += exp(-data.LOGIT_param_driver * (mu_os.matrix[o][s] + data.cost_between_nodes.matrix[s][d]));
             }
@@ -335,8 +360,8 @@ Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
 
 /*----------------------------------------------------------------------------------------------------------------------
 目的関数
-第一引数：暫定解，第二引数：タスク起点のインデックス行列，
-第三引数：ノード間のコスト行列，第四引数；ドライバーLOGITパラメータ
+第一引数：暫定解，第二引数：問題のデータ
+返り値：目的関数値
 ----------------------------------------------------------------------------------------------------------------------*/
 double obj_function(const Vector now_sol, const Problem_struct data)
 {
@@ -349,19 +374,20 @@ double obj_function(const Vector now_sol, const Problem_struct data)
     Matrix mu_od;
     mu_od = calc_mu_od(mu_os, data);
 
-    for(int r = 0; r < data.depots_index.num_elements; r++)
+
+    for(int r = 0; r < data.num_depots; r++)
     {
-        for (int s = 0; s < data.cost_between_nodes.num_row; s++)
+        for (int s = 0; s < data.num_nodes; s++)
         {
-            int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
+            int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
             obj -= data.num_shippers.matrix[r][s] * now_sol.vector[rs];
         }
         
     }
 
-    for(int o = 0; o < data.cost_between_nodes.num_row; o++)
+    for(int o = 0; o < data.num_nodes; o++)
     {
-        for(int d = 0; d < data.cost_between_nodes.num_row; d++)
+        for(int d = 0; d < data.num_nodes; d++)
         {
             obj -= data.num_drivers.matrix[o][d] * mu_od.matrix[o][d];
         }
@@ -375,25 +401,178 @@ double obj_function(const Vector now_sol, const Problem_struct data)
 }
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
 /*----------------------------------------------------------------------------------------------------------------------
 勾配関数
 ----------------------------------------------------------------------------------------------------------------------*/
+// pのためだけの3次元行列構造体
+typedef struct {
+    int num_row_1;
+    int num_row_2;
+    int num_row_3;
+    double*** matrix;
+} Matrix_3_dim;
+
+/*----------------------------------------------------------------------------------------------------------------------
+3次元行列メモリ領域確保の関数
+第一引数：対象の3次元行列構造体
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix_3_dim keep_3_dim_memory_area(Matrix_3_dim matrix)
+{
+
+    matrix.matrix = malloc(sizeof(double**) * matrix.num_row_1);
+    for(int row_1 = 0; row_1 < matrix.num_row_1; row_1++){
+        matrix.matrix[row_1] = malloc(sizeof(double*) * matrix.num_row_2);
+        for(int row_2 = 0; row_2 < matrix.num_row_2; row_2++){
+            matrix.matrix[row_1][row_2] = malloc(sizeof(double) * matrix.num_row_3);
+        }
+    }
+
+    return matrix;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+3次元行列のメモリ領域を解放する関数
+----------------------------------------------------------------------------------------------------------------------*/
+int free_Matrix_3_dim(Matrix_3_dim A)
+{
+    for (int dim_1 = 0; dim_1 < A.num_row_1; dim_1++)
+    {
+        for(int dim_2 = 0; dim_2 < A.num_row_2; dim_2++)
+        {
+            free(A.matrix[dim_1][dim_2]);
+        }
+        free(A.matrix[dim_1]);
+    }
+    free(A.matrix);
+
+    return 0;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+p_osd計算関数
+第一引数：問題のデータ，第二引数：mu_os，第三引数：mu_od
+返り値：p_osd(3次元行列 0スタート)
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix_3_dim calc_p_osd(const Problem_struct data, const Matrix mu_os, const Matrix mu_od)
+{
+
+    Matrix_3_dim p_osd;
+    p_osd.num_row_1 = data.num_nodes;
+    p_osd.num_row_2 = data.num_nodes;
+    p_osd.num_row_3 = data.num_nodes;
+    p_osd = keep_3_dim_memory_area(p_osd);
+
+    for(int o = 0; o < p_osd.num_row_1; o++){
+        for(int s = 0; s < p_osd.num_row_2; s++){
+            for(int d = 0; d < p_osd.num_row_3; d++){
+                p_osd.matrix[o][s][d] = exp(-data.LOGIT_param_driver * (mu_os.matrix[o][s] + data.cost_between_nodes.matrix[s][d] - mu_od.matrix[o][d]));
+            }
+        }
+    }
+
+    return p_osd;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+p_ors計算関数
+第一引数：問題のデータ，第二引数：暫定解，第三引数：mu_os
+返り値：p_ors(3次元行列 0スタート)
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix_3_dim calc_p_ors(const Problem_struct data, const Vector now_sol, const Matrix mu_os)
+{
+    Matrix_3_dim p_ors;
+    p_ors.num_row_1 = data.num_nodes;
+    p_ors.num_row_2 = data.num_depots;
+    p_ors.num_row_3 = data.num_nodes;
+    p_ors = keep_3_dim_memory_area(p_ors);
+
+    for(int o = 0; o < p_ors.num_row_1; o++){
+        for(int r = 0; r < p_ors.num_row_2; r++){
+            for(int s = 0; s < p_ors.num_row_3; s++){
+                int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
+                p_ors.matrix[o][r][s] = exp(- data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][r] + data.cost_between_nodes.matrix[r][s] - now_sol.vector[rs] - mu_os.matrix[o][s]));
+            }
+        }
+    }
+
+    return p_ors;
+}
+
+/*----------------------------------------------------------------------------------------------------------------------
+X_os計算関数
+第一引数：問題のデータ，第二引数：p_osd
+返り値：X_os行列
+----------------------------------------------------------------------------------------------------------------------*/
+Matrix calc_x_os(const Problem_struct data, const Matrix_3_dim p_osd){
+
+    Matrix x_os;
+    x_os.num_col = data.num_nodes;
+    x_os.num_row = data.num_nodes;
+    x_os.matrix = malloc(sizeof(double*) * x_os.num_row);
+    for(int o = 0; o < x_os.num_row; o++){
+        x_os.matrix[o] = malloc(sizeof(double) * x_os.num_col);
+        for(int s = 0; s < x_os.num_col; s++){
+            x_os.matrix[o][s] = 0.0;
+            for(int d = 0; d < data.num_nodes; d++){
+                x_os.matrix[o][s] += data.num_drivers.matrix[o][d] * p_osd.matrix[o][s][d]; 
+            }
+        }
+    }
+
+    return x_os;
+
+}
 
 
-Vector nabla_function(const Vector x)
+/*----------------------------------------------------------------------------------------------------------------------
+勾配関数
+第一引数：暫定解，第二引数：問題のデータ
+返り値：勾配ベクトル
+----------------------------------------------------------------------------------------------------------------------*/
+Vector nabla_function(const Vector now_sol, const Problem_struct data)
 {
 
     Vector nabla;
-    nabla.vector = malloc(sizeof(double) * x.num_elements);
-    nabla.num_elements = x.num_elements;
+    nabla.num_elements = now_sol.num_elements;
+    nabla.vector = malloc(sizeof(double) * (now_sol.num_elements));
 
-    zeros_vector_double(nabla.vector, nabla.num_elements);
+    Matrix mu_os = calc_mu_os(now_sol, data);
+    Matrix mu_od = calc_mu_od(mu_os, data);
 
-    for (int i = 0; i < 10; i++)
-    {
-        // nabla[i] = 2*x[i];
-        nabla.vector[i] = 2 * x.vector[i] + 1 + exp(x.vector[i]);
+    Matrix_3_dim p_osd = calc_p_osd(data, mu_os, mu_od);
+    Matrix_3_dim p_ors = calc_p_ors(data, now_sol, mu_os);
+
+    Matrix x_os = calc_x_os(data, p_osd);
+
+    for(int r = 0; r < data.num_depots; r++){
+        for(int s = 0; s < data.num_nodes; s++){
+            int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
+            nabla.vector[rs] = - data.num_shippers.matrix[r][s];
+            for(int o = 0; o < data.num_nodes; o++){
+                nabla.vector[rs] += p_ors.matrix[o][r][s] * x_os.matrix[o][s];
+            }
+        }
     }
+
+    free_Matrix(mu_os);
+    free_Matrix(mu_od);
+    free_Matrix(x_os);
+
+    free_Matrix_3_dim(p_osd);
+    free_Matrix_3_dim(p_ors);
 
     return nabla;
 }

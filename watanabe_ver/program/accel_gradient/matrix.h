@@ -96,5 +96,25 @@ csvファイルから2次元行列(double型)を読み取る関数
 */
 int read_matrix_csv(const char *filename, double*** const matrix, int* const num_row, int* const num_col);
 
+/*
+csvファイルから2次元行列(double型)を読み取る関数
+第一引数：ファイル名，第二引数：「ベクトルを格納するポインタ」のポインタ，第三引数：要素数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_vector_csv(const char *filename, double **const matrix, int *const num_elements);
+
+/*
+csvファイルから2次元行列(int型)を読み取る関数
+第一引数：ファイル名，第二引数：「ベクトルを格納するポインタ」のポインタ，第三引数：要素数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_int_matrix_csv(const char *filename, int ***const matrix, int *const num_row, int *const num_col);
+
+/*
+csvファイルから2次元行列(int型)を読み取る関数
+第一引数：ファイル名，第二引数：「ベクトルを格納するポインタ」のポインタ，第三引数：要素数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_int_vector_csv(const char *filename, int **const matrix, int *const num_elements);
 
 #endif // _MATRIX_H_

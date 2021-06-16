@@ -376,3 +376,192 @@ int read_matrix_csv(const char *filename, double*** const matrix, int* const num
     return 0;
 
 }
+
+/*
+csvファイルから2次元行列(double型)を読み取る関数
+第一引数：ファイル名，第二引数：「ベクトルを格納するポインタ」のポインタ，第三引数：要素数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_vector_csv(const char *filename, double **const matrix, int *const num_elements)
+{
+
+    char chData;
+
+    int num_row, num_col;
+
+    // 行数と列数を読み取る
+    if (csv_CountRowCol(filename, &num_row, &num_col))
+    {
+        return -1;
+    }
+    if (num_col != 1)
+    {
+        return -1;
+    }
+
+    *num_elements = num_row;
+
+    FILE *fp = fopen(filename, "r");
+
+    // 領域確保
+    matrix[0] = malloc(sizeof(double) * (num_row));
+
+    for (int row_index = 0; row_index < num_row; row_index++)
+    {
+        char data[256];
+        for (int i = 0; i < 256; i++)
+        {
+            data[i] = '\0';
+        }
+        int ch_counter = 0;
+
+        while (fscanf(fp, "%c", &chData) != EOF)
+        {
+
+            // 「,」または「\n」が来たらループを抜ける
+            if ((chData == ',') || (chData == '\n'))
+            {
+                break;
+            }
+            else
+            {
+                data[ch_counter] = chData;
+                ch_counter++;
+            }
+        }
+
+        data[ch_counter] = '\0';
+        matrix[0][row_index] = atof(data);
+    }
+
+    // printf_matrix_double(matrix[0], *num_row, *num_col);
+
+    fclose(fp);
+    return 0;
+}
+
+/*
+csvファイルから2次元行列(int型)を読み取る関数
+第一引数：ファイル名，第二引数：「行列を格納するポインタ」のポインタ，第三引数：行数ポインタ，第四引数：列数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_int_matrix_csv(const char *filename, int ***const matrix, int *const num_row, int *const num_col)
+{
+
+    char chData;
+
+    // 行数と列数を読み取る
+    if (csv_CountRowCol(filename, num_row, num_col))
+    {
+        return -1;
+    }
+
+    FILE *fp = fopen(filename, "r");
+
+    // 領域確保
+    matrix[0] = malloc(sizeof(double *) * (*num_row));
+    for (int i = 0; i < *num_row; i++)
+    {
+        matrix[0][i] = malloc(sizeof(double) * (*num_col));
+    }
+
+    for (int row_index = 0; row_index < *num_row; row_index++)
+    {
+        for (int col_index = 0; col_index < *num_col; col_index++)
+        {
+
+            char data[256];
+            for (int i = 0; i < 256; i++)
+            {
+                data[i] = '\0';
+            }
+            int ch_counter = 0;
+
+            while (fscanf(fp, "%c", &chData) != EOF)
+            {
+
+                // 「,」または「\n」が来たらループを抜ける
+                if ((chData == ',') || (chData == '\n'))
+                {
+                    break;
+                }
+                else
+                {
+                    data[ch_counter] = chData;
+                    ch_counter++;
+                }
+            }
+
+            data[ch_counter] = '\0';
+            matrix[0][row_index][col_index] = atoi(data);
+        }
+    }
+
+    // printf_matrix_double(matrix[0], *num_row, *num_col);
+
+    fclose(fp);
+    return 0;
+}
+
+/*
+csvファイルから2次元行列(int型)を読み取る関数
+第一引数：ファイル名，第二引数：「ベクトルを格納するポインタ」のポインタ，第三引数：要素数ポインタ
+返り値：成功0，失敗-1
+*/
+int read_int_vector_csv(const char *filename, int **const matrix, int *const num_elements)
+{
+
+    char chData;
+
+    int num_row, num_col;
+
+    // 行数と列数を読み取る
+    if (csv_CountRowCol(filename, &num_row, &num_col))
+    {
+        return -1;
+    }
+    if (num_col != 1)
+    {
+        return -1;
+    }
+
+    *num_elements = num_row;
+
+    FILE *fp = fopen(filename, "r");
+
+    // 領域確保
+    matrix[0] = malloc(sizeof(double) * (num_row));
+
+    for (int row_index = 0; row_index < num_row; row_index++)
+    {
+        char data[256];
+        for (int i = 0; i < 256; i++)
+        {
+            data[i] = '\0';
+        }
+        int ch_counter = 0;
+
+        while (fscanf(fp, "%c", &chData) != EOF)
+        {
+
+            // 「,」または「\n」が来たらループを抜ける
+            if ((chData == ',') || (chData == '\n'))
+            {
+                break;
+            }
+            else
+            {
+                data[ch_counter] = chData;
+                ch_counter++;
+            }
+        }
+
+        data[ch_counter] = '\0';
+        matrix[0][row_index] = atoi(data);
+    }
+
+    // printf_matrix_double(matrix[0], *num_row, *num_col);
+
+    fclose(fp);
+    return 0;
+}

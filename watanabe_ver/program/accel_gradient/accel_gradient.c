@@ -61,7 +61,7 @@ backtracking (AlgorithmファイルのFISTAのアルゴリズムを参照)
 第六引数：目的関数の呼び出し回数ポインタ，第七引数：勾配関数の呼び出し回数ポインタ
 返り値：iota(本来は自然数だが，便宜上double型で返す)
 */
-double backtracking(const double L, const double eta, const double (*function)(const Vector), const Vector (*nabla_function)(const Vector), const Vector x, int *num_calls_obj, int *num_calls_nabla)
+double backtracking(const double L, const double eta, const double (*function)(const Vector, const Problem_struct), const Vector (*nabla_function)(const Vector, const Problem_struct), const Vector x, int *num_calls_obj, int *num_calls_nabla, const Problem_struct data)
 {
 
     double F, Q;
@@ -71,10 +71,10 @@ double backtracking(const double L, const double eta, const double (*function)(c
     y.vector = malloc(sizeof(double) * x.num_elements);
     y.num_elements = x.num_elements;
 
-    double obj = function(x);
+    double obj = function(x, data);
     num_calls_obj[0]++;
 
-    Vector nabla = nabla_function(x);
+    Vector nabla = nabla_function(x, data);
     num_calls_nabla[0]++;
 
     double nolm = nolm_2(nabla.vector, x.num_elements);
@@ -93,7 +93,7 @@ double backtracking(const double L, const double eta, const double (*function)(c
         k_times_double(y.vector, -1.0 / (pow(eta, iota) * L), x.num_elements);
         sum_b_to_a_double(y.vector, x.vector, x.num_elements);
 
-        F = function(y);
+        F = function(y, data);
         num_calls_obj[0]++;
 
         if (F <= Q)
@@ -118,7 +118,7 @@ FISTA with リスタート
 第四引数：目的関数，第五引数：勾配関数，第六引数：初期解
 返り値：0
 */
-Optimization FISTA_with_restart(const double epsilon, const double eta, double L, const double (*function)(const Vector), const Vector (*nabla_function)(const Vector), const Vector x_first)
+Optimization FISTA_with_restart(const double epsilon, const double eta, double L, const double (*function)(const Vector, const Problem_struct), const Vector (*nabla_function)(const Vector, const Problem_struct), const Vector x_first, const Problem_struct data)
 {
 
     Optimization solution;
@@ -166,7 +166,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
     {
 
         // backtracking によるリプシッツ定数の取得
-        iota = backtracking(L, eta, function, nabla_function, y, &num_calls_obj, &num_calls_nabla);
+        iota = backtracking(L, eta, function, nabla_function, y, &num_calls_obj, &num_calls_nabla, data);
         L = pow(eta, iota) * L;
 
         // リプシッツ定数(ステップサイズの逆数)の確認
@@ -174,7 +174,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
 
         // 暫定解の更新
         free(y_nabla.vector);
-        y_nabla = nabla_function(y);
+        y_nabla = nabla_function(y, data);
         num_calls_nabla++;
         k_times_double(y_nabla.vector, -1 / L, x_elements);
         copy_vector_double(x.vector, y.vector, x_elements);
@@ -184,7 +184,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         iteration++;
 
         // 勾配の計算
-        x_nabla = nabla_function(x);
+        x_nabla = nabla_function(x, data);
         num_calls_nabla++;
 
         // 勾配を確認したいときは on に
@@ -208,7 +208,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         // 目的関数値を計算したいときは on
         if(iteration%100 == 0){
             printf("Iteration:%d\n", iteration);
-            printf("Conv = %f \tObj = %f \tLips = %f\n\n", conv, function(x), L);
+            printf("Conv = %f \tObj = %f \tLips = %f\n\n", conv, function(x, data), L);
         }
         // printf("objective = %f", function(x));
 
@@ -380,7 +380,7 @@ double obj_function(const Vector now_sol, const Problem_struct data)
         for (int s = 0; s < data.num_nodes; s++)
         {
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
-            obj -= data.num_shippers.matrix[r][s] * now_sol.vector[rs];
+            obj -= data.num_shippers.matrix[data.depots_index.vector[r]][s] * now_sol.vector[rs];
         }
         
     }
@@ -503,7 +503,7 @@ Matrix_3_dim calc_p_ors(const Problem_struct data, const Vector now_sol, const M
         for(int r = 0; r < p_ors.num_row_2; r++){
             for(int s = 0; s < p_ors.num_row_3; s++){
                 int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
-                p_ors.matrix[o][r][s] = exp(- data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][r] + data.cost_between_nodes.matrix[r][s] - now_sol.vector[rs] - mu_os.matrix[o][s]));
+                p_ors.matrix[o][data.depots_index.vector[r]][s] = exp(- data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s] - now_sol.vector[rs] - mu_os.matrix[o][s]));
             }
         }
     }
@@ -560,9 +560,9 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
     for(int r = 0; r < data.num_depots; r++){
         for(int s = 0; s < data.num_nodes; s++){
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
-            nabla.vector[rs] = - data.num_shippers.matrix[r][s];
+            nabla.vector[rs] = - data.num_shippers.matrix[data.depots_index.vector[r]][s];
             for(int o = 0; o < data.num_nodes; o++){
-                nabla.vector[rs] += p_ors.matrix[o][r][s] * x_os.matrix[o][s];
+                nabla.vector[rs] += p_ors.matrix[o][data.depots_index.vector[r]][s] * x_os.matrix[o][s];
             }
         }
     }
@@ -575,4 +575,74 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
     free_Matrix_3_dim(p_ors);
 
     return nabla;
+}
+
+
+
+
+
+
+
+/*----------------------------------------------------------------------------------------------------------------------
+メイン関数
+----------------------------------------------------------------------------------------------------------------------*/
+int main()
+{
+
+    Problem_struct data;
+    
+    // コスト行列読み込み (num_node * num_node)
+    char *filename;
+    filename = "cost.csv";
+    read_matrix_csv(filename, &data.cost_between_nodes.matrix, &data.cost_between_nodes.num_row, &data.cost_between_nodes.num_col);
+
+    // 荷主数行列読み込み(num_node * num_node)
+    filename = "num_shippers.csv";
+    read_matrix_csv(filename, &data.num_shippers, &data.num_shippers.num_row, &data.num_shippers.num_col);
+
+    // ドライバー数行列読み込み(num_node * num_node)
+    filename = "num_drivers.csv";
+    read_matrix_csv(filename, &data.num_drivers, &data.num_drivers.num_row, &data.num_drivers.num_col);
+
+    // タスク起点インデックス読み込み(num_depots)
+    filename = "depots_index.csv";
+    read_int_vector_csv(filename, &data.depots_index.vector, &data.depots_index.num_elements);
+    
+    // タスク起点インデックスを(0スタート)から(1スタート)に変換
+    for(int r = 0; r < data.depots_index.num_elements; r++){
+        data.depots_index.vector[r] += -1;
+    }
+
+    // LOGITパラメータを設定
+    data.LOGIT_param_driver = 5.0;
+    data.num_nodes = data.cost_between_nodes.num_row;
+    data.num_depots = data.depots_index.num_elements;
+
+    double (* obj)(const Vector, const Problem_struct);
+    double* (* nabla)(const Vector, const Problem_struct);
+
+    obj = obj_function;
+    nabla = nabla_function;
+    
+    Vector sol_first;
+    sol_first.num_elements = data.num_depots * data.num_nodes;
+    sol_first.vector = malloc(sizeof(double) * sol_first.num_elements);
+    zeros_vector_double(sol_first.vector, sol_first.num_elements);
+
+
+
+
+    Optimization solution;
+
+    solution = FISTA_with_restart(1.0, 1.1, 0.01, obj, nabla, sol_first, data);
+
+
+
+
+    printf("Iteration = %d", solution.iteration);
+
+    free(sol_first.vector);
+    free(solution.sol.vector);
+
+    return 0;
 }

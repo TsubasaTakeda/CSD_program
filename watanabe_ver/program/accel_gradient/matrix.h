@@ -117,4 +117,18 @@ csvファイルから2次元行列(int型)を読み取る関数
 */
 int read_int_vector_csv(const char *filename, int **const matrix, int *const num_elements);
 
+/*
+2次元行列(double型)をcsvファイルに保存する関数
+第一引数：ファイル名，第二引数：行列ポインタ，第三引数：行数ポインタ，第四引数：列数ポインタ
+返り値：成功0，失敗-1
+*/
+int write_matrix_csv(const char *filename, double **const matrix, int const num_row, int const num_col);
+
+/*
+1次元行列(double型)をcsvファイルに保存する関数
+第一引数：ファイル名，第二引数：ベクトルのポインタ，第三引数：ベクトル要素数
+返り値：成功0，失敗-1
+*/
+int write_vector_csv(const char *filename, double *const vector, int const num_elements);
+
 #endif // _MATRIX_H_

@@ -187,9 +187,11 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         x_nabla = nabla_function(x, data);
         num_calls_nabla++;
 
+            // printf("complete_3\n");
+
         // 勾配を確認したいときは on に
-        // printf_vector_double(x_nabla, x_elements);
-        // printf("max = %f\nmin = %f\n", max_vector_double(x_nabla, x_elements), min_vector_double(x_nabla, x_elements));
+        // printf_vector_double(x_nabla.vector, x_elements);
+        // printf("max = %f\nmin = %f\n", max_vector_double(x_nabla.vector, x_elements), min_vector_double(x_nabla.vector, x_elements));
 
         // 収束判定
         double max_vector = max_vector_double(x_nabla.vector, x_elements);
@@ -291,7 +293,7 @@ int calc_rs_index_from_r_s(const int r, const int s, const int num_s)
 {
     int rs = 0;
 
-    rs += r * num_s + ( s - 1 );
+    rs += r * num_s + s;
 
     return rs;
 }
@@ -321,8 +323,11 @@ Matrix calc_mu_os(const Vector now_sol, const Problem_struct data)
             }
 
             mu_os.matrix[o][s] = - log(sum) / data.LOGIT_param_driver;
+            // printf("mu_os.matrix[%d][%d] = %lf\n", o, s, mu_os.matrix[o][s]);
         }
     }
+
+    // printf_matrix_double(mu_os.matrix, mu_os.num_row, mu_os.num_col);
 
     return mu_os;
 }
@@ -348,11 +353,19 @@ Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
             for (int s = 0; s < data.num_nodes; s++)
             {
                 sum += exp(-data.LOGIT_param_driver * (mu_os.matrix[o][s] + data.cost_between_nodes.matrix[s][d]));
+                // printf("%lf\n", mu_os.matrix[o][s] + data.cost_between_nodes.matrix[s][d]);
+                // printf("mu_os = \n");
+                // printf_matrix_double(mu_os.matrix, mu_os.num_row, mu_os.num_col);
+                // printf("cost = \n");
+                // printf_matrix_double(data.cost_between_nodes.matrix, data.cost_between_nodes.num_row, data.cost_between_nodes.num_col);
+                // printf("sum = %lf\n", sum);
             }
 
             mu_od.matrix[o][d] = -log(sum) / data.LOGIT_param_driver;
+            // printf("%lf\t%lf\n", mu_od.matrix[o][d], mu_os.matrix[o][d]);
         }
     }
+    // printf_matrix_double(mu_od.matrix, mu_od.num_row, mu_od.num_col);
 
     return mu_od;
 }
@@ -380,7 +393,7 @@ double obj_function(const Vector now_sol, const Problem_struct data)
         for (int s = 0; s < data.num_nodes; s++)
         {
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
-            obj -= data.num_shippers.matrix[data.depots_index.vector[r]][s] * now_sol.vector[rs];
+            obj -= data.num_shippers.matrix[r][s] * now_sol.vector[rs];
         }
         
     }
@@ -498,13 +511,20 @@ Matrix_3_dim calc_p_ors(const Problem_struct data, const Vector now_sol, const M
     p_ors.num_row_2 = data.num_depots;
     p_ors.num_row_3 = data.num_nodes;
     p_ors = keep_3_dim_memory_area(p_ors);
+    // printf_vector_double(now_sol.vector, now_sol.num_elements);
 
     for(int o = 0; o < p_ors.num_row_1; o++){
         for(int r = 0; r < p_ors.num_row_2; r++){
+            // printf("start\n");
             for(int s = 0; s < p_ors.num_row_3; s++){
-                int rs = calc_rs_index_from_r_s(r, s, data.cost_between_nodes.num_row);
-                p_ors.matrix[o][data.depots_index.vector[r]][s] = exp(- data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s] - now_sol.vector[rs] - mu_os.matrix[o][s]));
+                int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
+                // printf("num_nodes = %d\n", data.num_nodes);
+                // printf("num_depots = %d\n", data.num_depots);
+                // printf("rs = %d\n", rs);
+                // printf("p_ors[%d][%d][%d] = %lf\n", o, r, s, data.cost_between_nodes.matrix[o][data.depots_index.vector[r]]);
+                p_ors.matrix[o][r][s] = exp( - data.LOGIT_param_driver * (data.cost_between_nodes.matrix[o][data.depots_index.vector[r]] + data.cost_between_nodes.matrix[data.depots_index.vector[r]][s] - now_sol.vector[rs] - mu_os.matrix[o][s]));
             }
+            // printf("complete\n");
         }
     }
 
@@ -550,22 +570,27 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
     nabla.vector = malloc(sizeof(double) * (now_sol.num_elements));
 
     Matrix mu_os = calc_mu_os(now_sol, data);
+    // printf_matrix_double(mu_os.matrix, mu_os.num_row, mu_os.num_col);
     Matrix mu_od = calc_mu_od(mu_os, data);
+    // printf_matrix_double(mu_od.matrix, mu_od.num_row, mu_od.num_col);
 
     Matrix_3_dim p_osd = calc_p_osd(data, mu_os, mu_od);
     Matrix_3_dim p_ors = calc_p_ors(data, now_sol, mu_os);
 
     Matrix x_os = calc_x_os(data, p_osd);
 
-    for(int r = 0; r < data.num_depots; r++){
+    for(int r = 0; r < data.num_depots; r++)
+    {
         for(int s = 0; s < data.num_nodes; s++){
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
-            nabla.vector[rs] = - data.num_shippers.matrix[data.depots_index.vector[r]][s];
+            nabla.vector[rs] = - data.num_shippers.matrix[r][s];
             for(int o = 0; o < data.num_nodes; o++){
-                nabla.vector[rs] += p_ors.matrix[o][data.depots_index.vector[r]][s] * x_os.matrix[o][s];
+                nabla.vector[rs] += p_ors.matrix[o][r][s] * x_os.matrix[o][s];
             }
         }
+        // printf("complete_mid\n");
     }
+
 
     free_Matrix(mu_os);
     free_Matrix(mu_od);
@@ -573,6 +598,7 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
 
     free_Matrix_3_dim(p_osd);
     free_Matrix_3_dim(p_ors);
+
 
     return nabla;
 }
@@ -595,18 +621,21 @@ int main()
     char *filename;
     filename = "cost.csv";
     read_matrix_csv(filename, &data.cost_between_nodes.matrix, &data.cost_between_nodes.num_row, &data.cost_between_nodes.num_col);
+    // printf_matrix_double(data.cost_between_nodes.matrix, data.cost_between_nodes.num_row, data.cost_between_nodes.num_col);
 
     // 荷主数行列読み込み(num_node * num_node)
     filename = "num_shippers.csv";
-    read_matrix_csv(filename, &data.num_shippers, &data.num_shippers.num_row, &data.num_shippers.num_col);
+    read_int_matrix_csv(filename, &data.num_shippers.matrix, &data.num_shippers.num_row, &data.num_shippers.num_col);
 
     // ドライバー数行列読み込み(num_node * num_node)
     filename = "num_drivers.csv";
-    read_matrix_csv(filename, &data.num_drivers, &data.num_drivers.num_row, &data.num_drivers.num_col);
+    read_int_matrix_csv(filename, &data.num_drivers.matrix, &data.num_drivers.num_row, &data.num_drivers.num_col);
 
     // タスク起点インデックス読み込み(num_depots)
     filename = "depots_index.csv";
     read_int_vector_csv(filename, &data.depots_index.vector, &data.depots_index.num_elements);
+
+    // printf("complete_1\n");
     
     // タスク起点インデックスを(0スタート)から(1スタート)に変換
     for(int r = 0; r < data.depots_index.num_elements; r++){
@@ -614,12 +643,12 @@ int main()
     }
 
     // LOGITパラメータを設定
-    data.LOGIT_param_driver = 5.0;
+    data.LOGIT_param_driver = 1.0;
     data.num_nodes = data.cost_between_nodes.num_row;
     data.num_depots = data.depots_index.num_elements;
 
     double (* obj)(const Vector, const Problem_struct);
-    double* (* nabla)(const Vector, const Problem_struct);
+    Vector (* nabla)(const Vector, const Problem_struct);
 
     obj = obj_function;
     nabla = nabla_function;
@@ -630,16 +659,35 @@ int main()
     zeros_vector_double(sol_first.vector, sol_first.num_elements);
 
 
+    // printf("complete_2\n");
 
+    // 勾配関数の動作確認 -------------------------------------------------------------------------------------
+    // Vector nabla_first = nabla_function(sol_first, data);
+    // printf_vector_double(nabla_first.vector, nabla_first.num_elements);
+    // -------------------------------------------------------------------------------------------------------
+
+    // 目的関数の動作確認 -------------------------------------------------------------------------------------
+    // double obj_first = obj_function(sol_first, data);
+    // printf("obj = %lf\n", obj_first);
+    // -------------------------------------------------------------------------------------------------------
+
+    // printf("complete_mid\n");
 
     Optimization solution;
 
     solution = FISTA_with_restart(1.0, 1.1, 0.01, obj, nabla, sol_first, data);
+    printf("complete FISTA\n");
 
 
+    printf("Iteration = %d\n\nSolution:", solution.iteration);
+    printf_vector_double(solution.sol.vector, solution.sol.num_elements);
 
+    printf("time = %lf [s]\n", solution.CPU_time_sec);
+    printf("num of calls obj_function = %d\n", solution.num_calls_obj);
+    printf("num of calls nabla_function = %d\n", solution.num_calls_nabla);
 
-    printf("Iteration = %d", solution.iteration);
+    filename = "sol_price.csv";
+    write_vector_csv(filename, solution.sol.vector, solution.sol.num_elements);
 
     free(sol_first.vector);
     free(solution.sol.vector);

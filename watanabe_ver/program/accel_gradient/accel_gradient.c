@@ -6,7 +6,12 @@
 #include <time.h>
 #include <direct.h>
 
-#define LOGIT_DRIVER 5.0;
+#define LOGIT_DRIVER 5.0
+#define CONVERGENCE 0.00001
+#define ETA_ACCEL_PARAM 1.1
+#define FIRST_LIPS 0.01
+#define DISPLAY_ITERATION 100
+
 
 // ベクトル構造体
 typedef struct {
@@ -29,6 +34,15 @@ typedef struct {
     int num_col;
     int** matrix;
 } Matrix_int;
+
+// pのためだけの3次元行列構造体
+typedef struct
+{
+    int num_row_1;
+    int num_row_2;
+    int num_row_3;
+    double ***matrix;
+} Matrix_3_dim;
 
 // 加速勾配法の返り値構造体
 typedef struct {
@@ -53,6 +67,77 @@ typedef struct {
 
 
 
+/*----------------------------------------------------------------------------------------------------------------------
+行列関係
+----------------------------------------------------------------------------------------------------------------------*/
+
+/*
+3次元行列メモリ領域確保の関数
+第一引数：対象の3次元行列構造体
+*/
+Matrix get_matrix_memory_area(Matrix matrix)
+{
+
+    matrix.matrix = malloc(sizeof(double *) * matrix.num_row);
+    for (int dim_1 = 0; dim_1 < matrix.num_row; dim_1++)
+    {
+        matrix.matrix[dim_1] = malloc(sizeof(double ) * matrix.num_col);
+    }
+
+    return matrix;
+}
+
+/*
+行列のメモリ領域を解放する関数
+*/
+int free_Matrix(Matrix A)
+{
+    for (int row = 0; row < A.num_row; row++)
+    {
+        free(A.matrix[row]);
+    }
+    free(A.matrix);
+
+    return 0;
+}
+
+/*
+3次元行列メモリ領域確保の関数
+第一引数：対象の3次元行列構造体
+*/
+Matrix_3_dim get_3_dim_memory_area(Matrix_3_dim matrix)
+{
+
+    matrix.matrix = malloc(sizeof(double **) * matrix.num_row_1);
+    for (int row_1 = 0; row_1 < matrix.num_row_1; row_1++)
+    {
+        matrix.matrix[row_1] = malloc(sizeof(double *) * matrix.num_row_2);
+        for (int row_2 = 0; row_2 < matrix.num_row_2; row_2++)
+        {
+            matrix.matrix[row_1][row_2] = malloc(sizeof(double) * matrix.num_row_3);
+        }
+    }
+
+    return matrix;
+}
+
+/*
+3次元行列のメモリ領域を解放する関数
+*/
+int free_Matrix_3_dim(Matrix_3_dim A)
+{
+    for (int dim_1 = 0; dim_1 < A.num_row_1; dim_1++)
+    {
+        for (int dim_2 = 0; dim_2 < A.num_row_2; dim_2++)
+        {
+            free(A.matrix[dim_1][dim_2]);
+        }
+        free(A.matrix[dim_1]);
+    }
+    free(A.matrix);
+
+    return 0;
+}
 
 /*----------------------------------------------------------------------------------------------------
 加速勾配法
@@ -212,7 +297,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         }
 
         // 目的関数値を計算したいときは on
-        if(iteration%100 == 0){
+        if(iteration%(DISPLAY_ITERATION) == 0){
             printf("Iteration:%d\n", iteration);
             printf("Conv = %f \tObj = %f \tLips = %f\n\n", conv, function(x, data), L);
         }
@@ -274,25 +359,10 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
 目的関数関係
 ----------------------------------------------------------------------------------------------------------------------*/
 
-/*----------------------------------------------------------------------------------------------------------------------
-行列のメモリ領域を解放する関数
-----------------------------------------------------------------------------------------------------------------------*/
-int free_Matrix(Matrix A)
-{
-    for(int row = 0; row < A.num_row; row++)
-    {
-        free(A.matrix[row]);
-    }
-    free(A.matrix);
-
-    return 0;
-}
-
-
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 r_index(0スタート)，s_index(0スタート)から
 rs_index(0スタート)をえる関数
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 int calc_rs_index_from_r_s(const int r, const int s, const int num_s)
 {
     int rs = 0;
@@ -302,11 +372,11 @@ int calc_rs_index_from_r_s(const int r, const int s, const int num_s)
     return rs;
 }
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 mu_os計算関数
 第一引数：暫定解，第二引数：問題構造
 返り値：mu_os行列(行がo，列がsで0スタート)
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Matrix calc_mu_os(const Vector now_sol, const Problem_struct data)
 {
     Matrix mu_os;
@@ -336,11 +406,11 @@ Matrix calc_mu_os(const Vector now_sol, const Problem_struct data)
     return mu_os;
 }
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 mu_od計算関数
 第一引数：mu_os行列，第二引数：問題構造
 返り値：mu_od行列(行がo，列がdで0スタート)
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
 {
     Matrix mu_od;
@@ -375,11 +445,11 @@ Matrix calc_mu_od(const Matrix mu_os, const Problem_struct data)
 }
 
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 目的関数
 第一引数：暫定解，第二引数：問題のデータ
 返り値：目的関数値
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 double obj_function(const Vector now_sol, const Problem_struct data)
 {
 
@@ -434,55 +504,12 @@ double obj_function(const Vector now_sol, const Problem_struct data)
 /*----------------------------------------------------------------------------------------------------------------------
 勾配関数
 ----------------------------------------------------------------------------------------------------------------------*/
-// pのためだけの3次元行列構造体
-typedef struct {
-    int num_row_1;
-    int num_row_2;
-    int num_row_3;
-    double*** matrix;
-} Matrix_3_dim;
 
-/*----------------------------------------------------------------------------------------------------------------------
-3次元行列メモリ領域確保の関数
-第一引数：対象の3次元行列構造体
-----------------------------------------------------------------------------------------------------------------------*/
-Matrix_3_dim keep_3_dim_memory_area(Matrix_3_dim matrix)
-{
-
-    matrix.matrix = malloc(sizeof(double**) * matrix.num_row_1);
-    for(int row_1 = 0; row_1 < matrix.num_row_1; row_1++){
-        matrix.matrix[row_1] = malloc(sizeof(double*) * matrix.num_row_2);
-        for(int row_2 = 0; row_2 < matrix.num_row_2; row_2++){
-            matrix.matrix[row_1][row_2] = malloc(sizeof(double) * matrix.num_row_3);
-        }
-    }
-
-    return matrix;
-}
-
-/*----------------------------------------------------------------------------------------------------------------------
-3次元行列のメモリ領域を解放する関数
-----------------------------------------------------------------------------------------------------------------------*/
-int free_Matrix_3_dim(Matrix_3_dim A)
-{
-    for (int dim_1 = 0; dim_1 < A.num_row_1; dim_1++)
-    {
-        for(int dim_2 = 0; dim_2 < A.num_row_2; dim_2++)
-        {
-            free(A.matrix[dim_1][dim_2]);
-        }
-        free(A.matrix[dim_1]);
-    }
-    free(A.matrix);
-
-    return 0;
-}
-
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 p_osd計算関数
 第一引数：問題のデータ，第二引数：mu_os，第三引数：mu_od
 返り値：p_osd(3次元行列 0スタート)
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Matrix_3_dim calc_p_osd(const Problem_struct data, const Matrix mu_os, const Matrix mu_od)
 {
 
@@ -490,7 +517,7 @@ Matrix_3_dim calc_p_osd(const Problem_struct data, const Matrix mu_os, const Mat
     p_osd.num_row_1 = data.num_nodes;
     p_osd.num_row_2 = data.num_nodes;
     p_osd.num_row_3 = data.num_nodes;
-    p_osd = keep_3_dim_memory_area(p_osd);
+    p_osd = get_3_dim_memory_area(p_osd);
 
     for(int o = 0; o < p_osd.num_row_1; o++){
         for(int s = 0; s < p_osd.num_row_2; s++){
@@ -503,18 +530,18 @@ Matrix_3_dim calc_p_osd(const Problem_struct data, const Matrix mu_os, const Mat
     return p_osd;
 }
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 p_ors計算関数
 第一引数：問題のデータ，第二引数：暫定解，第三引数：mu_os
 返り値：p_ors(3次元行列 0スタート)
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Matrix_3_dim calc_p_ors(const Problem_struct data, const Vector now_sol, const Matrix mu_os)
 {
     Matrix_3_dim p_ors;
     p_ors.num_row_1 = data.num_nodes;
     p_ors.num_row_2 = data.num_depots;
     p_ors.num_row_3 = data.num_nodes;
-    p_ors = keep_3_dim_memory_area(p_ors);
+    p_ors = get_3_dim_memory_area(p_ors);
     // printf_vector_double(now_sol.vector, now_sol.num_elements);
 
     for(int o = 0; o < p_ors.num_row_1; o++){
@@ -535,11 +562,11 @@ Matrix_3_dim calc_p_ors(const Problem_struct data, const Vector now_sol, const M
     return p_ors;
 }
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 X_os計算関数
 第一引数：問題のデータ，第二引数：p_osd
 返り値：X_os行列
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Matrix calc_x_os(const Problem_struct data, const Matrix_3_dim p_osd){
 
     Matrix x_os;
@@ -561,11 +588,11 @@ Matrix calc_x_os(const Problem_struct data, const Matrix_3_dim p_osd){
 }
 
 
-/*----------------------------------------------------------------------------------------------------------------------
+/*
 勾配関数
 第一引数：暫定解，第二引数：問題のデータ
 返り値：勾配ベクトル
-----------------------------------------------------------------------------------------------------------------------*/
+*/
 Vector nabla_function(const Vector now_sol, const Problem_struct data)
 {
 
@@ -606,6 +633,72 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
 
     return nabla;
 }
+
+
+
+
+
+
+
+/*----------------------------------------------------------------------------------------------------------------------
+ラスト配分関数
+----------------------------------------------------------------------------------------------------------------------*/
+
+/*
+ラスト配分関数
+第一引数：問題データ，第二引数：p_osd，第三引数：p_ors
+返り値：タスク配分行列(od(num_nodes*num_nodes) * rs(num_depots*num_nodes))
+*/
+Matrix allocate_task_to_driver(Problem_struct data, Vector sol)
+{
+
+    Matrix allocate;
+    allocate.num_row = data.num_nodes*data.num_nodes;
+    allocate.num_col = data.num_depots*data.num_nodes;
+    allocate = get_matrix_memory_area(allocate);
+
+    Matrix mu_os = calc_mu_os(sol, data);
+    Matrix mu_od = calc_mu_od(mu_os, data);
+
+    Matrix_3_dim p_osd = calc_p_osd(data, mu_os, mu_od);
+    Matrix_3_dim p_ors = calc_p_ors(data, sol, mu_os);
+
+
+    for(int o = 0; o < data.num_nodes; o++)
+    {
+        for(int d = 0; d < data.num_nodes; d++)
+        {
+            int od = calc_rs_index_from_r_s(o, d, data.num_nodes);
+            // printf("od = %d\n", od);
+            for(int r = 0; r < data.num_depots; r++)
+            {
+                for(int s = 0; s < data.num_nodes; s++)
+                {
+                    int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
+                    // printf("s = %d", s);
+                    // printf("rs = %d\n", rs);
+                    // printf("num_driver = %d,", data.num_drivers.matrix[o][d]);
+                    // printf("\tp_osd = %lf,", p_osd.matrix[o][s][0]);
+                    // printf("\tp_ors = %lf\n", p_ors.matrix[o][r][s]);
+                    // printf_matrix_double(p_osd.matrix[o], p_osd.num_row_2, p_osd.num_row_3);
+                    allocate.matrix[od][rs] = (double)(data.num_drivers.matrix[o][d]) * p_osd.matrix[o][s][d] * p_ors.matrix[o][r][s];
+                    // printf_matrix_double(p_osd.matrix[0], p_osd.num_row_2, p_osd.num_row_3);
+                    // printf("allocate[%d][%d][%d][%d] = %lf\n", o, d, r, s, allocate.matrix[od][rs]); 
+                }
+            }
+        }
+    }
+
+    free_Matrix(mu_os);
+    free_Matrix(mu_od);
+    free_Matrix_3_dim(p_osd);
+    free_Matrix_3_dim(p_ors);
+
+    return allocate;
+
+}
+
+
 
 
 
@@ -679,7 +772,7 @@ int main()
 
     Optimization solution;
 
-    solution = FISTA_with_restart(1.0, 1.1, 0.01, obj, nabla, sol_first, data);
+    solution = FISTA_with_restart(CONVERGENCE, ETA_ACCEL_PARAM, FIRST_LIPS, obj, nabla, sol_first, data);
     printf("complete FISTA\n");
 
 
@@ -717,6 +810,15 @@ int main()
 
     filename = "output\\accel_iteration.csv";
     write_int_vector_csv(filename, &solution.iteration, 1);
+
+    printf("\n\n");
+
+    Matrix task_allocation = allocate_task_to_driver(data, solution.sol);
+    printf("task_allocation:");
+    printf_matrix_double(task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
+    filename = "output\\task_allocation.csv";
+    write_matrix_csv(filename, task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
+    
 
     free(sol_first.vector);
     free(solution.sol.vector);

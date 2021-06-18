@@ -4,6 +4,9 @@
 #include <float.h>
 #include <math.h>
 #include <time.h>
+#include <direct.h>
+
+#define LOGIT_DRIVER 5.0;
 
 // ベクトル構造体
 typedef struct {
@@ -30,6 +33,7 @@ typedef struct {
 // 加速勾配法の返り値構造体
 typedef struct {
     Vector sol;
+    Matrix sol_matrix;
     double CPU_time_sec;
     int iteration;
     int num_calls_obj;
@@ -619,20 +623,20 @@ int main()
     
     // コスト行列読み込み (num_node * num_node)
     char *filename;
-    filename = "cost.csv";
+    filename = ".\\input\\cost.csv";
     read_matrix_csv(filename, &data.cost_between_nodes.matrix, &data.cost_between_nodes.num_row, &data.cost_between_nodes.num_col);
     // printf_matrix_double(data.cost_between_nodes.matrix, data.cost_between_nodes.num_row, data.cost_between_nodes.num_col);
 
     // 荷主数行列読み込み(num_node * num_node)
-    filename = "num_shippers.csv";
+    filename = ".\\input\\num_shippers.csv";
     read_int_matrix_csv(filename, &data.num_shippers.matrix, &data.num_shippers.num_row, &data.num_shippers.num_col);
 
     // ドライバー数行列読み込み(num_node * num_node)
-    filename = "num_drivers.csv";
+    filename = ".\\input\\num_drivers.csv";
     read_int_matrix_csv(filename, &data.num_drivers.matrix, &data.num_drivers.num_row, &data.num_drivers.num_col);
 
     // タスク起点インデックス読み込み(num_depots)
-    filename = "depots_index.csv";
+    filename = ".\\input\\depots_index.csv";
     read_int_vector_csv(filename, &data.depots_index.vector, &data.depots_index.num_elements);
 
     // printf("complete_1\n");
@@ -643,7 +647,7 @@ int main()
     }
 
     // LOGITパラメータを設定
-    data.LOGIT_param_driver = 1.0;
+    data.LOGIT_param_driver = LOGIT_DRIVER;
     data.num_nodes = data.cost_between_nodes.num_row;
     data.num_depots = data.depots_index.num_elements;
 
@@ -680,17 +684,43 @@ int main()
 
 
     printf("Iteration = %d\n\nSolution:", solution.iteration);
-    printf_vector_double(solution.sol.vector, solution.sol.num_elements);
+    // printf_vector_double(solution.sol.vector, solution.sol.num_elements);
+
+    solution.sol_matrix.num_row = data.num_depots;
+    solution.sol_matrix.num_col = data.num_nodes;
+    solution.sol_matrix.matrix = malloc(sizeof(double*) * solution.sol_matrix.num_row);
+    for(int dim_1 = 0; dim_1 < solution.sol_matrix.num_row; dim_1++){
+        solution.sol_matrix.matrix[dim_1] = malloc(sizeof(double) * solution.sol_matrix.num_col);
+        for(int dim_2 = 0; dim_2 < solution.sol_matrix.num_col; dim_2++){
+            solution.sol_matrix.matrix[dim_1][dim_2] = solution.sol.vector[dim_1 * solution.sol_matrix.num_col + dim_2];
+        }
+    }
+    printf_matrix_double(solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
 
     printf("time = %lf [s]\n", solution.CPU_time_sec);
     printf("num of calls obj_function = %d\n", solution.num_calls_obj);
     printf("num of calls nabla_function = %d\n", solution.num_calls_nabla);
 
-    filename = "sol_price.csv";
-    write_vector_csv(filename, solution.sol.vector, solution.sol.num_elements);
+    mkdir("output");
+
+    filename = "output\\sol_price.csv";
+    write_matrix_csv(filename, solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
+
+    filename = "output\\accel_CPU_time_sec.csv";
+    write_vector_csv(filename, &solution.CPU_time_sec, 1);
+
+    filename = "output\\accel_num_call_obj.csv";
+    write_int_vector_csv(filename, &solution.num_calls_obj, 1);
+
+    filename = "output\\accel_num_call_nabla.csv";
+    write_int_vector_csv(filename, &solution.num_calls_nabla, 1);
+
+    filename = "output\\accel_iteration.csv";
+    write_int_vector_csv(filename, &solution.iteration, 1);
 
     free(sol_first.vector);
     free(solution.sol.vector);
+    free_Matrix(solution.sol_matrix);
 
     return 0;
 }

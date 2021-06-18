@@ -583,7 +583,10 @@ int write_matrix_csv(const char *filename, double **const matrix, int const num_
                 fprintf(fp, ",");
             }
         }
-        fprintf(fp, "\n");
+        if (dim_1 != num_row - 1)
+        {
+            fprintf(fp, "\n");
+        }
     }
 
     fclose(fp);
@@ -602,6 +605,58 @@ int write_vector_csv(const char *filename, double *const vector, int const num_e
     for (int dim_1 = 0; dim_1 < num_elements; dim_1++){
         fprintf(fp, "%lf", vector[dim_1]);
         if(dim_1 != num_elements-1){
+            fprintf(fp, "\n");
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+/*
+2次元行列(double型)をcsvファイルに保存する関数
+第一引数：ファイル名，第二引数：行列ポインタ，第三引数：行数ポインタ，第四引数：列数ポインタ
+返り値：成功0，失敗-1
+*/
+int write_int_matrix_csv(const char *filename, int **const matrix, int const num_row, int const num_col)
+{
+
+    FILE *fp = fopen(filename, "w");
+
+    for (int dim_1 = 0; dim_1 < num_row; dim_1++)
+    {
+        for (int dim_2 = 0; dim_2 < num_col; dim_2++)
+        {
+            fprintf(fp, "%d\t", matrix[dim_1][dim_2]);
+            if (dim_2 != num_col - 1)
+            {
+                fprintf(fp, ",");
+            }
+        }
+        if (dim_1 != num_row - 1)
+        {
+            fprintf(fp, "\n");
+        }
+    }
+
+    fclose(fp);
+    return 0;
+}
+
+/*
+1次元行列(double型)をcsvファイルに保存する関数
+第一引数：ファイル名，第二引数：ベクトルのポインタ，第三引数：ベクトル要素数
+返り値：成功0，失敗-1
+*/
+int write_int_vector_csv(const char *filename, int *const vector, int const num_elements)
+{
+    FILE *fp = fopen(filename, "w");
+
+    for (int dim_1 = 0; dim_1 < num_elements; dim_1++)
+    {
+        fprintf(fp, "%d", vector[dim_1]);
+        if (dim_1 != num_elements - 1)
+        {
             fprintf(fp, "\n");
         }
     }

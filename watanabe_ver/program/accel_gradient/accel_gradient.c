@@ -814,8 +814,8 @@ int main()
     printf("\n\n");
 
     Matrix task_allocation = allocate_task_to_driver(data, solution.sol);
-    printf("task_allocation:");
-    printf_matrix_double(task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
+    // printf("task_allocation:");
+    // printf_matrix_double(task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
     filename = "output\\task_allocation.csv";
     write_matrix_csv(filename, task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
     

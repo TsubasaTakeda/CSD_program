@@ -275,13 +275,16 @@ Vector_int calc_shortage_shipper(Problem_struct data, Matrix_int int_allocation)
 excess → shortage へと配分を移す od を選択する関数
 variation(増やしたい度合)の差(shortage - excess)が最も大きい od とする
 */
-int select_od(Matrix variation, int shortage_rs, int excess_rs)
+int select_od(Matrix variation, Matrix_int int_allocation, int shortage_rs, int excess_rs)
 {
     double max = DBL_MIN;
     int select_od = -1;
+    // printf("variation:");
+    // printf_matrix_double(variation.matrix, variation.num_row, variation.num_col);
+    // printf("shortage_rs = %d\texcess_rs = %d\n", shortage_rs, excess_rs);
     for(int od = 0; od < variation.num_row; od++)
     {
-        if(variation.matrix[od][shortage_rs] - variation.matrix[od][excess_rs] > max){
+        if(int_allocation.matrix[od][excess_rs] > 0 && variation.matrix[od][shortage_rs] - variation.matrix[od][excess_rs] > max){
             max = variation.matrix[od][shortage_rs] - variation.matrix[od][excess_rs];
             select_od = od;
         }
@@ -395,8 +398,8 @@ int main(){
             if(shortage_shipper.vector[rs] > 0){
                 shortage_index.vector[num_shortage] = rs;
                 num_shortage++;
-            } else if(shortage_shipper.vector[rs] < 0){
-                shortage_index.vector[num_excess] = rs;
+            }else if(shortage_shipper.vector[rs] < 0){
+                excess_index.vector[num_excess] = rs;
                 num_excess++;
             }
         }
@@ -407,15 +410,19 @@ int main(){
         while(1)
         {
             int search_rs_s = shortage_index.vector[search_shortage];
-            int search_rs_e = shortage_index.vector[search_excess];
-            int od = select_od(variation, search_rs_s, search_rs_e);
+            int search_rs_e = excess_index.vector[search_excess];
+            int od = select_od(variation, int_allocation, search_rs_s, search_rs_e);
             int_allocation.matrix[od][search_rs_s]++;
             int_allocation.matrix[od][search_rs_e]--;
+            shortage_shipper.vector[search_rs_s]--;
+            shortage_shipper.vector[search_rs_e]++;
             variation.matrix[od][search_rs_s] -= 1.0;
             variation.matrix[od][search_rs_e] -= 1.0;
+            // printf("complete\n");
             if(shortage_shipper.vector[shortage_index.vector[search_shortage]] == 0)
             {
-                if(search_shortage == shortage_index.num_elements-1) break;
+                // printf("end\n");
+                if(search_shortage == shortage_index.num_elements-1)break;
                 search_shortage++;
             }
             if(shortage_shipper.vector[excess_index.vector[search_excess]] == 0)

@@ -1,11 +1,9 @@
-
 % 個人のコスト行列(num_driver*num_rs)の読み込み
 indivisual_cost = readmatrix("input/indivisual_cost.csv");
 num_shippers = readmatrix("input/num_shippers.csv");
-num_drivers = readmatrix("input/num_drivers.csv");
 
 
-Aeq = make_Aeq(indivisual_cost);
+Aeq = make_Aeq(indivisual_cost)
     clear Aeq_row;
     clear Aeq_col;
     clear Aeq_value;
@@ -29,6 +27,17 @@ mkdir("output");
 writematrix(x, "output/atomic_solution.csv");
 writematrix(fval, "output/func_value.csv");
 
+clear x;
+clear fval;
+clear Aeq;
+clear A;
+clear beq;
+clear b;
+clear lb;
+clear ub;
+clear f;
+clear indivisual_cost;
+clear num_shippers;
 
 
 

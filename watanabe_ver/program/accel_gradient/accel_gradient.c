@@ -6,8 +6,8 @@
 #include <time.h>
 #include <direct.h>
 
-#define LOGIT_DRIVER 5.0
-#define CONVERGENCE 0.00001
+#define LOGIT_DRIVER 4.998341023005942740e-01
+#define CONVERGENCE 1.0
 #define ETA_ACCEL_PARAM 1.1
 #define FIRST_LIPS 0.01
 #define DISPLAY_ITERATION 100
@@ -160,13 +160,20 @@ double backtracking(const double L, const double eta, const double (*function)(c
     y.vector = malloc(sizeof(double) * x.num_elements);
     y.num_elements = x.num_elements;
 
+    // printf("now_sol:");
+    // printf_vector_double(x.vector, x.num_elements);
+
     double obj = function(x, data);
+    // printf("obj = %lf\n", obj);
     num_calls_obj[0]++;
 
     Vector nabla = nabla_function(x, data);
+    // printf("now_nabla:");
+    // printf_vector_double(nabla.vector, nabla.num_elements);
     num_calls_nabla[0]++;
 
     double nolm = nolm_2(nabla.vector, x.num_elements);
+    // printf("nolm_2 = %lf\n", nolm);
 
     // 確認用
     // printf_vector_double(nabla, x_elements);
@@ -176,6 +183,7 @@ double backtracking(const double L, const double eta, const double (*function)(c
     {
 
         Q = obj - nolm / (2 * pow(eta, iota) * L);
+        // printf("Q = %lf\n", Q);
 
         // Fの移動先のベクトルを取得
         copy_vector_double(y.vector, nabla.vector, x.num_elements);
@@ -183,6 +191,7 @@ double backtracking(const double L, const double eta, const double (*function)(c
         sum_b_to_a_double(y.vector, x.vector, x.num_elements);
 
         F = function(y, data);
+        // printf("F = %lf\n", F);
         num_calls_obj[0]++;
 
         if (F <= Q)
@@ -265,7 +274,7 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         free(y_nabla.vector);
         y_nabla = nabla_function(y, data);
         num_calls_nabla++;
-        k_times_double(y_nabla.vector, -1 / L, x_elements);
+        k_times_double(y_nabla.vector, -1.0 / L, x_elements);
         copy_vector_double(x.vector, y.vector, x_elements);
         sum_b_to_a_double(x.vector, y_nabla.vector, x_elements);
         sum_b_to_a_double(delta_x.vector, y_nabla.vector, x_elements);
@@ -274,6 +283,8 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
 
         // 勾配の計算
         x_nabla = nabla_function(x, data);
+        // printf("now_sol:");
+        // printf_vector_double(x.vector, x.num_elements);
         num_calls_nabla++;
 
             // printf("complete_3\n");
@@ -479,6 +490,7 @@ double obj_function(const Vector now_sol, const Problem_struct data)
             obj -= data.num_drivers.matrix[o][d] * mu_od.matrix[o][d];
         }
     }
+    // printf_matrix_double(mu_od.matrix, mu_od.num_row, mu_od.num_col);
 
     free_Matrix(mu_os);
     free_Matrix(mu_od);
@@ -616,7 +628,7 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
             nabla.vector[rs] = - data.num_shippers.matrix[r][s];
             for(int o = 0; o < data.num_nodes; o++){
-                nabla.vector[rs] += p_ors.matrix[o][r][s] * x_os.matrix[o][s];
+                nabla.vector[rs] +=  p_ors.matrix[o][r][s] * x_os.matrix[o][s];
             }
         }
         // printf("complete_mid\n");
@@ -629,6 +641,8 @@ Vector nabla_function(const Vector now_sol, const Problem_struct data)
 
     free_Matrix_3_dim(p_osd);
     free_Matrix_3_dim(p_ors);
+
+    // printf_vector_double(nabla.vector, nabla.num_elements);
 
 
     return nabla;
@@ -733,6 +747,29 @@ int main()
     read_int_vector_csv(filename, &data.depots_index.vector, &data.depots_index.num_elements);
 
     // printf("complete_1\n");
+
+    int sum_driver = 0;
+    int sum_shipper = 0;
+
+    // printf("num_driver = \n");
+    // for(int i = 0; i < data.num_drivers.num_row; i++)
+    // {
+    //     for(int j = 0; j < data.num_drivers.num_col; j++)
+    //     {
+    //         sum_driver += data.num_drivers.matrix[i][j];
+    //         printf("%d\t", data.num_drivers.matrix[i][j]);
+    //     }
+    //     printf("\n");
+    // }
+    // printf("sum_driver = %d\n", sum_driver);
+    // for(int i = 0; i < data.num_shippers.num_row; i++)
+    // {
+    //     for(int j = 0; j < data.num_shippers.num_col; j++)
+    //     {
+    //         sum_shipper += data.num_shippers.matrix[i][j];
+    //     }
+    // }
+    // printf("sum_shipper = %d\n", sum_shipper);
     
     // タスク起点インデックスを(0スタート)から(1スタート)に変換
     for(int r = 0; r < data.depots_index.num_elements; r++){

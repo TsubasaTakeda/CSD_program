@@ -493,7 +493,7 @@ int read_int_matrix_csv(const char *filename, int ***const matrix, int *const nu
             }
 
             data[ch_counter] = '\0';
-            matrix[0][row_index][col_index] = atoi(data);
+            matrix[0][row_index][col_index] = (int)atof(data);
         }
     }
 
@@ -614,7 +614,7 @@ int write_vector_csv(const char *filename, double *const vector, int const num_e
 }
 
 /*
-2次元行列(double型)をcsvファイルに保存する関数
+2次元行列(int型)をcsvファイルに保存する関数
 第一引数：ファイル名，第二引数：行列ポインタ，第三引数：行数ポインタ，第四引数：列数ポインタ
 返り値：成功0，失敗-1
 */

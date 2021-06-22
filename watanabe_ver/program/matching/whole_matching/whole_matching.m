@@ -2,8 +2,9 @@
 indivisual_cost = readmatrix("input/indivisual_cost.csv");
 num_shippers = readmatrix("input/num_shippers.csv");
 
+sz = size(indivisual_cost);
 
-Aeq = make_Aeq(indivisual_cost)
+Aeq = make_Aeq(indivisual_cost);
     clear Aeq_row;
     clear Aeq_col;
     clear Aeq_value;
@@ -20,12 +21,21 @@ ub = ones(1, sz(1)*sz(2));
 
 f = reshape(indivisual_cost.', 1, []);
 
-[x, fval] = linprog(f, A, b, Aeq, beq, lb, ub)
+
+
+tic;
+
+[x, fval] = linprog(f, A, b, Aeq, beq, lb, ub);
 x = reshape(x, sz(2), sz(1)).';
+
+time = toc;
+
+
 
 mkdir("output");
 writematrix(x, "output/atomic_solution.csv");
 writematrix(fval, "output/func_value.csv");
+writematrix(time, "output/time.csv");
 
 clear x;
 clear fval;

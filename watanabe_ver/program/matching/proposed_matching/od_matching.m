@@ -8,6 +8,10 @@ sz_dv = size(num_drivers);
 sz = size(indivisual_cost);
 first_driver_index = 1;
 
+time = zeros(sz_dv(1), sz_dv(2));
+
+sum_obj = 0;
+
 mkdir("output");
 
 
@@ -17,7 +21,6 @@ for o = 1:sz_dv(1)
         if num_drivers(o, d) == 0
             continue;
         end
-            
         
         od = sz_dv(2)*(o-1) + d;
         n = task_allocation(od, :);
@@ -37,13 +40,22 @@ for o = 1:sz_dv(1)
         
         size(f);
         size(Aeq);
+        
+        
+        tic
 
-        [x, fval] = linprog(f, [], [], Aeq, beq, lb, ub)
+        [x, fval] = linprog(f, [], [], Aeq, beq, lb, ub);
         x = reshape(x, sz(2), num_drivers(o, d)).';
+                
+        time(o, d) = toc;
+        
+        
         
         mkdir("output/od(" + od + ")");
         writematrix(x, "output/od(" + od + ")/atomic_solution.csv");
         writematrix(fval, "output/od(" + od + ")/func_value.csv");
+        
+        sum_obj = sum_obj + fval;
         
         clear Aeq;
         clear beq;
@@ -54,9 +66,14 @@ for o = 1:sz_dv(1)
         first_driver_index = first_driver_index + num_drivers(o, d);
         
         str = "complete od = " + o + "×" + d
+        
             
     end
 end
+
+
+writematrix(sum_obj, "output/sum_func_value.csv");
+writematrix(time, "output/time.csv");
 
 
 function beq = make_beq(num_driver, task_allocation)

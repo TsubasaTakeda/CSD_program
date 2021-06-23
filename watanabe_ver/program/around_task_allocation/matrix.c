@@ -493,7 +493,7 @@ int read_int_matrix_csv(const char *filename, int ***const matrix, int *const nu
             }
 
             data[ch_counter] = '\0';
-            matrix[0][row_index][col_index] = atoi(data);
+            matrix[0][row_index][col_index] = (int)atof(data);
         }
     }
 

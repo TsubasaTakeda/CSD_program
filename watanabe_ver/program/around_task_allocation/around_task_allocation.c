@@ -358,6 +358,10 @@ int main(){
 
     // odドライバーの足りない人数を計算(real_driver - allocation)
     Vector_int shortage_driver = calc_shortage_driver(data, int_allocation);
+    // for(int i = 0; i < shortage_driver.num_elements; i++)
+    // {
+    //     printf("%d\t", shortage_driver.vector[i]);
+    // }
     
     // odドライバーの人数を調整
     Adjust_allocation_to_od_driver(int_allocation, shortage_driver, variation);
@@ -439,6 +443,8 @@ int main(){
     mkdir("output");
     filename = "output\\int_allocation.csv";
     write_int_matrix_csv(filename, int_allocation.matrix, int_allocation.num_row, int_allocation.num_col);
+
+    printf("complete\n");
 
     free_Matrix(allocation);
     free_Matrix_int(int_allocation);

@@ -14,6 +14,8 @@ sum_obj = 0;
 
 mkdir("output");
 
+whole_task_allocation = zeros(1, sz(2));
+
 
 for o = 1:sz_dv(1)
     for d = 1:sz_dv(2)
@@ -46,6 +48,8 @@ for o = 1:sz_dv(1)
 
         [x, fval] = linprog(f, [], [], Aeq, beq, lb, ub);
         x = reshape(x, sz(2), num_drivers(o, d)).';
+        
+        whole_task_allocation = cat(1, whole_task_allocation, x);
                 
         time(o, d) = toc;
         
@@ -71,9 +75,12 @@ for o = 1:sz_dv(1)
     end
 end
 
+whole_task_allocation(1, :) = [];
 
+writematrix(whole_task_allocation, "output/whole_task_allocation.csv");
 writematrix(sum_obj, "output/sum_func_value.csv");
 writematrix(time, "output/time.csv");
+
 
 
 function beq = make_beq(num_driver, task_allocation)

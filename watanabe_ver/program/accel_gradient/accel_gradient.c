@@ -310,7 +310,10 @@ Optimization FISTA_with_restart(const double epsilon, const double eta, double L
         // 目的関数値を計算したいときは on
         if(iteration%(DISPLAY_ITERATION) == 0){
             printf("Iteration:%d\n", iteration);
-            printf("Conv = %f \tObj = %f \tLips = %f\n\n", conv, function(x, data), L);
+            printf("Conv = %f \tObj = %f \tLips = %f\n", conv, function(x, data), L);
+            printf("now_nabla:");
+            printf_vector_double(x_nabla.vector, x_nabla.num_elements);
+            printf("\n");
         }
         // printf("objective = %f", function(x));
 
@@ -767,7 +770,9 @@ int main()
     //     for(int j = 0; j < data.num_shippers.num_col; j++)
     //     {
     //         sum_shipper += data.num_shippers.matrix[i][j];
+    //         printf("%d\t", data.num_shippers.matrix[i][j]);
     //     }
+    //     printf("\n");
     // }
     // printf("sum_shipper = %d\n", sum_shipper);
     

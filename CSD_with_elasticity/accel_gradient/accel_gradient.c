@@ -819,8 +819,8 @@ Matrix allocate_task(Problem_struct data, Vector sol)
 
             int rs = calc_rs_index_from_r_s(r, s, data.num_nodes);
 
-            allocate_task.matrix[rs][0] = num_task.matrix[r][s];
-            allocate_task.matrix[rs][1] = data.num_shippers.matrix[r][s] - allocate_task.matrix[rs][0];
+            allocate_task.matrix[rs][1] = num_task.matrix[r][s];
+            allocate_task.matrix[rs][0] = (double)data.num_shippers.matrix[r][s] - allocate_task.matrix[rs][1];
 
         }
 

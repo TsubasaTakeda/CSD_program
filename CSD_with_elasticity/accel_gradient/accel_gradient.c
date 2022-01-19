@@ -150,6 +150,55 @@ int free_Matrix_3_dim(Matrix_3_dim A)
     return 0;
 }
 
+char **read_filename_csv(const char *filename, int *numfile)
+{
+
+    char chData;
+
+    int num_row, num_col;
+
+    // 行数と列数を読み取る
+    if (csv_CountRowCol(filename, &num_row, &num_col))
+    {
+        // return -1;
+    }
+    // printf("%d, %d\n", num_row, num_col);
+    *numfile = num_row * num_col;
+
+    FILE *fp = fopen(filename, "r");
+
+    // 領域確保
+    char **filelist = malloc(sizeof(char *) * num_row * num_col);
+    for (int i = 0; i < num_row * num_col; i++)
+    {
+        filelist[i] = malloc(sizeof(char) * 256);
+    }
+    // printf("%s\n", filelist[0]);
+    // printf("%d", num_row);
+
+    // char s[num_row*num_col][100];
+
+    for (int i = 0; i < num_row * num_col; i++)
+    {
+        // printf("%d", i);
+
+        fscanf(fp, "%s", filelist[i]);
+
+        // printf("%s", s[i]);
+
+        // filelist[i] = &s[i][0];
+
+        // printf(filelist[i]);
+        // printf("\n");
+    }
+    // printf("end");
+
+    // printf_matrix_double(matrix[0], *num_row, *num_col);
+
+    fclose(fp);
+    return filelist;
+}
+
 /*----------------------------------------------------------------------------------------------------
 加速勾配法
 ----------------------------------------------------------------------------------------------------*/
@@ -844,150 +893,189 @@ Matrix allocate_task(Problem_struct data, Vector sol)
 /*----------------------------------------------------------------------------------------------------------------------
 メイン関数
 ----------------------------------------------------------------------------------------------------------------------*/
-int main()
-{
+int main(){
 
-    Problem_struct data;
-    
-    // コスト行列読み込み (num_node * num_node)
-    char *filename;
-    filename = ".\\input\\cost.csv";
-    read_matrix_csv(filename, &data.cost_between_nodes.matrix, &data.cost_between_nodes.num_row, &data.cost_between_nodes.num_col);
-    // printf_matrix_double(data.cost_between_nodes.matrix, data.cost_between_nodes.num_row, data.cost_between_nodes.num_col);
+    char *filename = malloc(sizeof(char) * 256);
+    filename = "..//filelist.csv";
+    int numfile;
+    char **filelist;
+    filelist = read_filename_csv(filename, &numfile);
 
-    // 荷主数行列読み込み(num_node * num_node)
-    filename = ".\\input\\num_shippers.csv";
-    read_int_matrix_csv(filename, &data.num_shippers.matrix, &data.num_shippers.num_row, &data.num_shippers.num_col);
+    for (int i = 0; i < numfile; i++){
 
-    // ドライバー数行列読み込み(num_node * num_node)
-    filename = ".\\input\\num_drivers.csv";
-    read_int_matrix_csv(filename, &data.num_drivers.matrix, &data.num_drivers.num_row, &data.num_drivers.num_col);
+        for (int exp = 0; exp < 10; exp++){
 
-    // タスク起点インデックス読み込み(num_depots)
-    filename = ".\\input\\depots_index.csv";
-    read_int_vector_csv(filename, &data.depots_index.vector, &data.depots_index.num_elements);
+            Problem_struct data;
 
-    // printf("complete_1\n");
+            char buff[256];
+            char file[256];
 
-    int sum_driver = 0;
-    int sum_shipper = 0;
+            strcpy(buff, filelist[i]);
 
-    // printf("num_driver = \n");
-    // for(int i = 0; i < data.num_drivers.num_row; i++)
-    // {
-    //     for(int j = 0; j < data.num_drivers.num_col; j++)
-    //     {
-    //         sum_driver += data.num_drivers.matrix[i][j];
-    //         printf("%d\t", data.num_drivers.matrix[i][j]);
-    //     }
-    //     printf("\n");
-    // }
-    // printf("sum_driver = %d\n", sum_driver);
-    // for(int i = 0; i < data.num_shippers.num_row; i++)
-    // {
-    //     for(int j = 0; j < data.num_shippers.num_col; j++)
-    //     {
-    //         sum_shipper += data.num_shippers.matrix[i][j];
-    //         printf("%d\t", data.num_shippers.matrix[i][j]);
-    //     }
-    //     printf("\n");
-    // }
-    // printf("sum_shipper = %d\n", sum_shipper);
-    
-    // タスク起点インデックスを(0スタート)から(1スタート)に変換
-    for(int r = 0; r < data.depots_index.num_elements; r++){
-        data.depots_index.vector[r] += -1;
-    }
+            strcat(buff, "exp_");
+            // // printf("end");
 
-    // LOGITパラメータを設定
-    data.LOGIT_param_driver = LOGIT_DRIVER;
-    data.LOGIT_param_shipper = LOGIT_SHIPPER;
-    data.num_nodes = data.cost_between_nodes.num_row;
-    data.num_depots = data.depots_index.num_elements;
-
-    double (* obj)(const Vector, const Problem_struct);
-    Vector (* nabla)(const Vector, const Problem_struct);
-
-    obj = obj_function;
-    nabla = nabla_function;
-    
-    Vector sol_first;
-    sol_first.num_elements = data.num_depots * data.num_nodes;
-    sol_first.vector = malloc(sizeof(double) * sol_first.num_elements);
-    zeros_vector_double(sol_first.vector, sol_first.num_elements);
+            char exp_str[10];
+            itoa(exp, exp_str, 10);
+            // printf(exp_str);
+            strcat(buff, exp_str);
 
 
-    // printf("complete_2\n");
 
-    // 勾配関数の動作確認 -------------------------------------------------------------------------------------
-    // Vector nabla_first = nabla_function(sol_first, data);
-    // printf_vector_double(nabla_first.vector, nabla_first.num_elements);
-    // -------------------------------------------------------------------------------------------------------
+            // コスト行列読み込み (num_node * num_node)
+            strcpy(file, buff);
+            strcat(file, "\\input\\cost.csv");
+            read_matrix_csv(file, &data.cost_between_nodes.matrix, &data.cost_between_nodes.num_row, &data.cost_between_nodes.num_col);
+            // printf_matrix_double(data.cost_between_nodes.matrix, data.cost_between_nodes.num_row, data.cost_between_nodes.num_col);
 
-    // 目的関数の動作確認 -------------------------------------------------------------------------------------
-    // double obj_first = obj_function(sol_first, data);
-    // printf("obj = %lf\n", obj_first);
-    // -------------------------------------------------------------------------------------------------------
+            // 荷主数行列読み込み(num_node * num_node)
+            strcpy(file, buff);
+            strcat(file, "\\input\\num_shippers.csv");
+            read_int_matrix_csv(file, &data.num_shippers.matrix, &data.num_shippers.num_row, &data.num_shippers.num_col);
 
-    // printf("complete_mid\n");
+            // ドライバー数行列読み込み(num_node * num_node)
+            strcpy(file, buff);
+            strcat(file, "\\input\\num_drivers.csv");
+            read_int_matrix_csv(file, &data.num_drivers.matrix, &data.num_drivers.num_row, &data.num_drivers.num_col);
 
-    Optimization solution;
+            // タスク起点インデックス読み込み(num_depots)
+            strcpy(file, buff);
+            strcat(file, "\\input\\depots_index.csv");
+            read_int_vector_csv(file, &data.depots_index.vector, &data.depots_index.num_elements);
 
-    solution = FISTA_with_restart(CONVERGENCE, ETA_ACCEL_PARAM, FIRST_LIPS, obj, nabla, sol_first, data);
-    printf("complete FISTA\n");
+            printf("complete read files.\n\n");
+
+            int sum_driver = 0;
+            int sum_shipper = 0;
 
 
-    printf("Iteration = %d\n\nSolution:", solution.iteration);
-    // printf_vector_double(solution.sol.vector, solution.sol.num_elements);
+            // タスク起点インデックスを(0スタート)から(1スタート)に変換
+            for (int r = 0; r < data.depots_index.num_elements; r++)
+            {
+                data.depots_index.vector[r] += -1;
+            }
 
-    solution.sol_matrix.num_row = data.num_depots;
-    solution.sol_matrix.num_col = data.num_nodes;
-    solution.sol_matrix.matrix = malloc(sizeof(double*) * solution.sol_matrix.num_row);
-    for(int dim_1 = 0; dim_1 < solution.sol_matrix.num_row; dim_1++){
-        solution.sol_matrix.matrix[dim_1] = malloc(sizeof(double) * solution.sol_matrix.num_col);
-        for(int dim_2 = 0; dim_2 < solution.sol_matrix.num_col; dim_2++){
-            solution.sol_matrix.matrix[dim_1][dim_2] = solution.sol.vector[dim_1 * solution.sol_matrix.num_col + dim_2];
+            // LOGITパラメータを設定
+            data.LOGIT_param_driver = LOGIT_DRIVER;
+            data.LOGIT_param_shipper = LOGIT_SHIPPER;
+            data.num_nodes = data.cost_between_nodes.num_row;
+            data.num_depots = data.depots_index.num_elements;
+
+            double (*obj)(const Vector, const Problem_struct);
+            Vector (*nabla)(const Vector, const Problem_struct);
+
+            obj = obj_function;
+            nabla = nabla_function;
+
+            Vector sol_first;
+            sol_first.num_elements = data.num_depots * data.num_nodes;
+            sol_first.vector = malloc(sizeof(double) * sol_first.num_elements);
+            zeros_vector_double(sol_first.vector, sol_first.num_elements);
+
+            // printf("complete_2\n");
+
+            // 勾配関数の動作確認 -------------------------------------------------------------------------------------
+            // Vector nabla_first = nabla_function(sol_first, data);
+            // printf_vector_double(nabla_first.vector, nabla_first.num_elements);
+            // -------------------------------------------------------------------------------------------------------
+
+            // 目的関数の動作確認 -------------------------------------------------------------------------------------
+            // double obj_first = obj_function(sol_first, data);
+            // printf("obj = %lf\n", obj_first);
+            // -------------------------------------------------------------------------------------------------------
+
+            // printf("complete_mid\n");
+
+            Optimization solution;
+
+            solution = FISTA_with_restart(CONVERGENCE, ETA_ACCEL_PARAM, FIRST_LIPS, obj, nabla, sol_first, data);
+            printf("complete FISTA\n");
+
+            printf("Iteration = %d\n\nSolution:", solution.iteration);
+            // printf_vector_double(solution.sol.vector, solution.sol.num_elements);
+
+            solution.sol_matrix.num_row = data.num_depots;
+            solution.sol_matrix.num_col = data.num_nodes;
+            solution.sol_matrix.matrix = malloc(sizeof(double *) * solution.sol_matrix.num_row);
+            for (int dim_1 = 0; dim_1 < solution.sol_matrix.num_row; dim_1++)
+            {
+                solution.sol_matrix.matrix[dim_1] = malloc(sizeof(double) * solution.sol_matrix.num_col);
+                for (int dim_2 = 0; dim_2 < solution.sol_matrix.num_col; dim_2++)
+                {
+                    solution.sol_matrix.matrix[dim_1][dim_2] = solution.sol.vector[dim_1 * solution.sol_matrix.num_col + dim_2];
+                }
+            }
+            printf_matrix_double(solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
+
+            printf("time = %lf [s]\n", solution.CPU_time_sec);
+            printf("num of calls obj_function = %d\n", solution.num_calls_obj);
+            printf("num of calls nabla_function = %d\n", solution.num_calls_nabla);
+
+            strcpy(file, buff);
+            strcat(file, "\\output");
+            mkdir(file);
+
+            strcpy(file, buff);
+            strcat(file, "\\output\\sol_price.csv");
+            write_matrix_csv(file, solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
+
+            strcpy(file, buff);
+            strcat(file, "\\time");
+            mkdir(file);
+
+            strcpy(file, buff);
+            strcat(file, "\\time\\accel_CPU_time_sec.csv");
+            write_vector_csv(file, &solution.CPU_time_sec, 1);
+
+            strcpy(file, buff);
+            strcat(file, "\\time\\accel_num_call_obj.csv");
+            write_int_vector_csv(file, &solution.num_calls_obj, 1);
+
+            strcpy(file, buff);
+            strcat(file, "\\time\\accel_num_call_nabla.csv");
+            write_int_vector_csv(file, &solution.num_calls_nabla, 1);
+
+            strcpy(file, buff);
+            strcat(file, "\\time\\accel_iteration.csv");
+            write_int_vector_csv(file, &solution.iteration, 1);
+
+            printf("\n\n");
+
+            Matrix task_allocation = allocate_task_to_driver(data, solution.sol);
+            Matrix num_task = allocate_task(data, solution.sol);
+            // printf("task_allocation:");
+            // printf_matrix_double(task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
+            strcpy(file, buff);
+            strcat(file, "\\middle");
+            mkdir(file);
+
+            strcpy(file, buff);
+            strcat(file, "\\middle\\task_allocation_to_driver.csv");
+            write_matrix_csv(file, task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
+            
+            strcpy(file, buff);
+            strcat(file, "\\middle\\num_tasks.csv");
+            write_matrix_csv(file, num_task.matrix, num_task.num_row, num_task.num_col);
+
+            free(sol_first.vector);
+            free(solution.sol.vector);
+            free_Matrix(solution.sol_matrix);
+            free_Matrix(task_allocation);
+            free_Matrix(num_task);
+
+            printf("\n\ncomplete!!!!!!!!!!!!!!!!!!!!!!!!!\n");
+            printf("%s___exp_%d", filelist[i], exp);
+            printf("\n\n\n\n");
         }
     }
-    printf_matrix_double(solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
+    free(filename);
 
-    printf("time = %lf [s]\n", solution.CPU_time_sec);
-    printf("num of calls obj_function = %d\n", solution.num_calls_obj);
-    printf("num of calls nabla_function = %d\n", solution.num_calls_nabla);
-
-    mkdir("output");
-
-    filename = "output\\sol_price.csv";
-    write_matrix_csv(filename, solution.sol_matrix.matrix, solution.sol_matrix.num_row, solution.sol_matrix.num_col);
-
-    filename = "output\\accel_CPU_time_sec.csv";
-    write_vector_csv(filename, &solution.CPU_time_sec, 1);
-
-    filename = "output\\accel_num_call_obj.csv";
-    write_int_vector_csv(filename, &solution.num_calls_obj, 1);
-
-    filename = "output\\accel_num_call_nabla.csv";
-    write_int_vector_csv(filename, &solution.num_calls_nabla, 1);
-
-    filename = "output\\accel_iteration.csv";
-    write_int_vector_csv(filename, &solution.iteration, 1);
-
-    printf("\n\n");
-
-    Matrix task_allocation = allocate_task_to_driver(data, solution.sol);
-    Matrix num_task = allocate_task(data, solution.sol);
-    // printf("task_allocation:");
-    // printf_matrix_double(task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
-    filename = "output\\task_allocation_to_driver.csv";
-    write_matrix_csv(filename, task_allocation.matrix, task_allocation.num_row, task_allocation.num_col);
-    filename = "output\\num_tasks.csv";
-    write_matrix_csv(filename, num_task.matrix, num_task.num_row, num_task.num_col);
-
-    free(sol_first.vector);
-    free(solution.sol.vector);
-    free_Matrix(solution.sol_matrix);
-    free_Matrix(task_allocation);
-    free_Matrix(num_task);
+    for (int i = 0; i < numfile; i++){
+        printf("%s\n", filelist[i]);
+        free(filelist[i]);
+    }
+    free(filelist);
 
     return 0;
+
 }

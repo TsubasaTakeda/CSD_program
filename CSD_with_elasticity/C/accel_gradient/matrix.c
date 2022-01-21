@@ -305,6 +305,13 @@ int csv_CountRowCol(const char *filename, int* const num_row, int* const num_col
         if(chData == '\n'){
             col++;
             row++;
+            if(fscanf(fp, "%c", &chData) == EOF){
+                col--;
+                row--;
+                break;
+            }else{
+                fseek(fp, -1, SEEK_CUR);
+            }
         }
     }
 
